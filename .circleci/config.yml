@@ -10,8 +10,8 @@ jobs:
   build_app:
     parameters:
     with_deploy:
-    type: boolean
-    default: false
+      type: boolean
+      default: false
     executor: docker_latest
     steps:
       - run:
