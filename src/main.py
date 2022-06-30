@@ -2,6 +2,7 @@ import os
 import queue
 import asyncio
 import threading
+from dataclasses import dataclass
 
 import discord
 import youtube_dl
@@ -60,12 +61,21 @@ class YTDLSource(discord.PCMVolumeTransformer):
         return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
 
 
+@dataclass
+class Song:
+    title: str
+    url: str
+    name: str  # uploader
+    preview: str  # thumbnail url
+
+
 class Radio(commands.Cog):
+    songs: queue.Queue[Song] = queue.Queue()
+    playable = threading.Lock()
     def __init__(self, bot):
         print("Called")
         self.bot = bot
-        self.songs = queue.Queue()
-        self.queue_lock = threading.Lock()
+
         threading.Thread(target=self.play_from_queue).start()
 
     @commands.command()
@@ -85,40 +95,71 @@ class Radio(commands.Cog):
         if ctx.voice_client is None and ctx.author.voice is not None:
             await ctx.author.voice.channel.connect()
 
-        if len(self.bot.voice_clients) == 0:
-            # TODO: clear the queue
-            pass
-
         # TODO: verify the request is a valid URL
         # TODO: do a naive request to see if the URL is reachable
         # TODO: if it's not a url, search on youtube, grab the first result
-        self.songs.put(url)
+
+        info = await self.get_url_info(url)
+        song = Song(
+            info["title"],
+            info["webpage_url"],
+            name=info["uploader"],
+            preview=info["thumbnail"],
+        )
+        self.songs.put(song)
 
     def play_from_queue(self):
+        """
+        Attempts to dequeue a song over yt-dl, and stream it through
+        a VC connection. Clears the queue if there are no listeners.
+        """
         while True:
-            print("Locking Queue.")
-            self.queue_lock.acquire(blocking=True)
-            print("Checking for Voice Clients")
+
+            # block for queue
+            self.playable.acquire()
+
+            song = self.songs.get()
+            # check for any listeners
             if len(self.bot.voice_clients) == 0:
-                print("No VC, releasing the queue lock")
-                self.queue_lock.release()
+                # clear queue if noone's listening
+                # HACK: huge data race here when clearing and a song is added
+                while not self.songs.empty():
+                    self.songs.get_nowait()
+                # TODO: leaving the vc
+
+                self.playable.release()
                 continue
-            print("Waiting for song.")
-            url = self.songs.get()
-            print("New song!")
 
-            vc = self.bot.voice_clients[0]
-            player = asyncio.run(YTDLSource.from_url(url, loop=None, stream=True))
+            player = asyncio.run(YTDLSource.from_url(song.url, loop=None, stream=True))
 
+            vc: discord.VoiceClient = self.bot.voice_clients[0]
             vc.play(player, after=lambda e: self.song_finished(e))
 
-            # await ctx.send(f"Now playing: {player.title}")
+            # notify users
+            embed = discord.Embed(
+                title=f"**{song.title}**", url=song.url, description=f"By {song.name}"
+            )
+            embed.set_author(name="🎶 Now Playing!")
+            embed.set_thumbnail(url=song.preview)
+            loop = asyncio.new_event_loop()
+            loop.run_until_complete(asyncio.create_task(self.chat.send(embed=embed)))
 
     def song_finished(self, e: Exception):
+        self.playable.release()
         if e:
             print(f"Player error: {e}")
         print(f"Song finished, moving on! err?: {e}")
-        self.queue_lock.release()
+
+    @classmethod
+    async def get_url_info(
+        cls, url: str, loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+    ) -> dict[str, Any]:
+        data = await loop.run_in_executor(
+            None, lambda: ytdl.extract_info(url, download=False)
+        )
+        if not data:
+            raise Exception("Song info could not be extracted")
+        return data
 
     @commands.command()
     async def volume(self, ctx, volume: int):
