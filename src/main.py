@@ -196,6 +196,7 @@ async def on_ready():
 
 
 def main():
+    discord.opus.load_opus()
     bot.add_cog(Radio(bot))
     # TODO: handle sigint and sigterm
     bot.run(os.getenv("DISCORD_TOKEN"))
