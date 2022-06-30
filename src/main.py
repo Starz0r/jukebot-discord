@@ -160,6 +160,11 @@ class Radio(commands.Cog):
         )
         if not data:
             raise Exception("Song info could not be extracted")
+
+        if "entries" in data:
+            # take first item from a playlist
+            data = data["entries"][0]
+
         return data
 
     @commands.command()
@@ -197,6 +202,7 @@ async def on_ready():
 
 
 def main():
+    # HACK: auto detect library location
     if platform.system() != "Windows":
         discord.opus.load_opus("libopus.so.0")
     bot.add_cog(Radio(bot))
