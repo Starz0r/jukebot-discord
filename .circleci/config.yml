@@ -7,51 +7,51 @@ executors:
       - image: docker:latest
 
 jobs:
-  build_app:
-    parameters:
-        with_deploy:
-            type: boolean
-            default: false
-    executor: docker_latest
-    steps:
-      - run:
-        name: Update the Alpine APK cache
-        command: |
-          apk update
-      - run:
-        name: Install Git & SSH
-        command: |
-          apk add git openssh-client openssh --no-cache
-      - checkout
-      - setup_remote_docker:
-        version: 17.09.0-ce
-      - restore_cache:
-        keys:
-          - pipenv-v0-{{ checksum "Pipfile.lock" }}
-      - run:
-        name: Build application
-        command: |
-          docker build -t $CONTAINER_REGISTRY_URL/$CONTAINER_REGISTRY/jukebot-discord:latest .
-      - save_cache:
-        key: pipenv-v0-{{ checksum "Pipfile.lock" }}
-        paths:
-          - ~/.cache/pipenv
-      - when:
-        condition: <<parameters.with_deploy>>
+    build_app:
+        parameters:
+            with_deploy:
+                type: boolean
+                default: false
+        executor: docker_latest
         steps:
-          - run:
-            name: Publish to GitHub Container Registry
-            command: |
-              echo $CONTAINER_REGISTRY_PASS | docker login ghcr.io -u $CONTAINER_REGISTRY_USER --password-stdin
-              docker push $CONTAINER_REGISTRY_URL/$CONTAINER_REGISTRY/jukebot-discord:latest
-
+            - run:
+                name: Update the Alpine APK cache
+                command: |
+                    apk update
+            - run:
+                name: Install Git & SSH
+                command: |
+                    apk add git openssh-client openssh --no-cache
+            - checkout
+            - setup_remote_docker:
+                version: 17.09.0-ce
+            - restore_cache:
+                keys:
+                    - pipenv-v0-{{ checksum "Pipfile.lock" }}
+            - run:
+                name: Build application
+                command: |
+                    docker build -t $CONTAINER_REGISTRY_URL/$CONTAINER_REGISTRY/jukebot-discord:latest .
+            - save_cache:
+                key: pipenv-v0-{{ checksum "Pipfile.lock" }}
+                paths:
+                    - ~/.cache/pipenv
+            - when:
+                condition: <<parameters.with_deploy>>
+                steps:
+                    - run:
+                        name: Publish to GitHub Container Registry
+                        command: |
+                            echo $CONTAINER_REGISTRY_PASS | docker login ghcr.io -u $CONTAINER_REGISTRY_USER --password-stdin
+                            docker push $CONTAINER_REGISTRY_URL/$CONTAINER_REGISTRY/jukebot-discord:latest
+                            
 workflows:
-  version: 2
-  build:
-    jobs:
-      - build_app:
-            name: Build & Deploy
-            with_deploy: true
-            filters:
-                branches:
-                    only: master
+    version: 2
+    build:
+        jobs:
+            - build_app:
+                name: Build & Deploy
+                with_deploy: true
+                filters:
+                    branches:
+                        only: master
