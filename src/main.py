@@ -1,12 +1,13 @@
+import asyncio
 import os
 import queue
-import asyncio
 import threading
 from dataclasses import dataclass
+from typing import Optional, Any
+import concurrent.futures
 
-import discord
-import youtube_dl
-
+import discord  # TODO: migrate to disnake
+import youtube_dl  # TODO: migrate to yt-dlp
 from discord.ext import commands
 
 bot = commands.Bot(
@@ -14,9 +15,10 @@ bot = commands.Bot(
     description="Relatively simple music bot example",
 )
 
+# TODO: logging
+
 # Suppress noise about console usage from errors
 youtube_dl.utils.bug_reports_message = lambda: ""
-
 
 ytdl_format_options = {
     "format": "bestaudio/best",
@@ -29,7 +31,8 @@ ytdl_format_options = {
     "quiet": True,
     "no_warnings": True,
     "default_search": "auto",
-    "source_address": "0.0.0.0",  # bind to ipv4 since ipv6 addresses cause issues sometimes
+    # bind to ipv4 since ipv6 addresses cause issues sometimes
+    "source_address": "0.0.0.0",
 }
 
 ffmpeg_options = {"options": "-vn"}
@@ -70,10 +73,12 @@ class Song:
 
 
 class Radio(commands.Cog):
+    bot: commands.Bot
     songs: queue.Queue[Song] = queue.Queue()
     playable = threading.Lock()
+    chat: Optional[discord.abc.Messageable]
+
     def __init__(self, bot):
-        print("Called")
         self.bot = bot
 
         threading.Thread(target=self.play_from_queue).start()
@@ -107,6 +112,7 @@ class Radio(commands.Cog):
             preview=info["thumbnail"],
         )
         self.songs.put(song)
+        self.chat = ctx
 
     def play_from_queue(self):
         """
@@ -197,6 +203,7 @@ async def on_ready():
 
 def main():
     bot.add_cog(Radio(bot))
+    # TODO: handle sigint and sigterm
     bot.run(os.getenv("DISCORD_TOKEN"))
 
 
