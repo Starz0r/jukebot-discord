@@ -4,6 +4,7 @@ import queue
 import threading
 from dataclasses import dataclass
 from typing import Optional, Any
+import platform
 
 import discord  # TODO: migrate to disnake
 import youtube_dl  # TODO: migrate to yt-dlp
@@ -196,6 +197,8 @@ async def on_ready():
 
 
 def main():
+    if platform.system() != "Windows":
+        discord.opus.load_opus("libopus.so.0")
     bot.add_cog(Radio(bot))
     # TODO: handle sigint and sigterm
     bot.run(os.getenv("DISCORD_TOKEN"))
