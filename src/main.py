@@ -4,7 +4,6 @@ import queue
 import threading
 from dataclasses import dataclass
 from typing import Optional, Any
-import concurrent.futures
 
 import discord  # TODO: migrate to disnake
 import youtube_dl  # TODO: migrate to yt-dlp
@@ -81,8 +80,6 @@ class Radio(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-        threading.Thread(target=self.play_from_queue).start()
-
     @commands.command()
     async def join(self, ctx, *, channel: discord.VoiceChannel):
         """Joins a voice channel"""
@@ -95,10 +92,6 @@ class Radio(commands.Cog):
     @commands.command()
     async def play(self, ctx, *, url):
         """Streams from a url (same as yt, but doesn't predownload)"""
-
-        # if we aren't in a voice channel, join the channel the user was in
-        if ctx.voice_client is None and ctx.author.voice is not None:
-            await ctx.author.voice.channel.connect()
 
         # TODO: verify the request is a valid URL
         # TODO: do a naive request to see if the URL is reachable
@@ -114,47 +107,48 @@ class Radio(commands.Cog):
         self.songs.put(song)
         self.chat = ctx
 
-    def play_from_queue(self):
-        """
-        Attempts to dequeue a song over yt-dl, and stream it through
-        a VC connection. Clears the queue if there are no listeners.
-        """
-        while True:
-
-            # block for queue
-            self.playable.acquire()
-
-            song = self.songs.get()
-            # check for any listeners
-            if len(self.bot.voice_clients) == 0:
-                # clear queue if noone's listening
-                # HACK: huge data race here when clearing and a song is added
-                while not self.songs.empty():
-                    self.songs.get_nowait()
-                # TODO: leaving the vc
-
-                self.playable.release()
-                continue
-
-            player = asyncio.run(YTDLSource.from_url(song.url, loop=None, stream=True))
-
-            vc: discord.VoiceClient = self.bot.voice_clients[0]
-            vc.play(player, after=lambda e: self.song_finished(e))
-
-            # notify users
+        if not self.bot.voice_clients[0].is_playing():
+            await self.dequeue_next_song()
+        elif self.bot.voice_clients[0].is_playing():
             embed = discord.Embed(
                 title=f"**{song.title}**", url=song.url, description=f"By {song.name}"
             )
-            embed.set_author(name="🎶 Now Playing!")
+            embed.set_author(name="📑 Queued Song")
             embed.set_thumbnail(url=song.preview)
-            loop = asyncio.new_event_loop()
-            loop.run_until_complete(asyncio.create_task(self.chat.send(embed=embed)))
+            await ctx.send(embed=embed)
+
+    async def dequeue_next_song(self):
+        song: Song
+        try:
+            song = self.songs.get(block=False)
+        except queue.Empty:
+            return
+
+        if len(self.bot.voice_clients) == 0:
+            while not self.songs.empty():
+                self.songs.get_nowait()
+            return
+
+        # TODO: use the currently running event loop
+        player = await YTDLSource.from_url(song.url, loop=None, stream=True)
+
+        vc: discord.VoiceClient = self.bot.voice_clients[0]
+        vc.play(player, after=lambda e: self.song_finished(e))
+
+        # notify users
+        embed = discord.Embed(
+            title=f"**{song.title}**", url=song.url, description=f"By {song.name}"
+        )
+        embed.set_author(name="🎶 Now Playing!")
+        embed.set_thumbnail(url=song.preview)
+        await self.chat.send(embed=embed)
 
     def song_finished(self, e: Exception):
-        self.playable.release()
+        fut = self.dequeue_next_song()
         if e:
             print(f"Player error: {e}")
         print(f"Song finished, moving on! err?: {e}")
+        asyncio.run_coroutine_threadsafe(fut, self.bot.loop).result()
 
     @classmethod
     async def get_url_info(
