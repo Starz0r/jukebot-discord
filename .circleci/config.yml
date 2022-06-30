@@ -9,9 +9,9 @@ executors:
 jobs:
   build_app:
     parameters:
-    with_deploy:
-      type: boolean
-      default: false
+        with_deploy:
+            type: boolean
+            default: false
     executor: docker_latest
     steps:
       - run:
@@ -50,8 +50,8 @@ workflows:
   build:
     jobs:
       - build_app:
-        name: Build & Deploy
-        with_deploy: true
-        filters:
-          branches:
-            only: master
+            name: Build & Deploy
+            with_deploy: true
+            filters:
+                branches:
+                    only: master
