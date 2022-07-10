@@ -7,7 +7,7 @@ from typing import Optional, Any
 import platform
 
 import discord  # TODO: migrate to disnake
-import youtube_dl  # TODO: migrate to yt-dlp
+import yt_dlp as youtube_dl  # TODO: migrate to yt-dlp
 from discord.ext import commands
 
 bot = commands.Bot(
