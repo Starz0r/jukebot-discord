@@ -33,6 +33,9 @@ ytdl_format_options = {
     "default_search": "auto",
     # bind to ipv4 since ipv6 addresses cause issues sometimes
     "source_address": "0.0.0.0",
+    "http_headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.0.0 Safari/537.36"
+    },
 }
 
 ffmpeg_options = {"options": "-vn"}
