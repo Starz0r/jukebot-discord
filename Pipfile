@@ -9,6 +9,7 @@ verify_ssl = true
 discord-py = {extras = ["voice"],version = "==1.7.2"}
 yt-dlp = "==2022.6.29"
 websockets = "==10.3"
+certifi = "==2022.06.15"
 
 [requires]
 python_version = "3.9"
