@@ -1,6 +1,8 @@
 FROM python:3.9.5-alpine3.13
 
-RUN apk update && apk upgrade && apk add ca-certificates ffmpeg opus
+RUN apk update && apk upgrade && apk add ca-certificates opus
+
+RUN apk add ffmpeg --repository=http://dl-cdn.alpinelinux.org/alpine/edge/community
 
 RUN apk add --virtual build-essentials build-base alpine-sdk libffi-dev
 
