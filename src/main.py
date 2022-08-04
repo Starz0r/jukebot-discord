@@ -5,10 +5,12 @@ import threading
 from dataclasses import dataclass
 from typing import Optional, Any
 import platform
+import time
 
 import discord  # TODO: migrate to disnake
 import yt_dlp as youtube_dl  # TODO: migrate to yt-dlp
 from discord.ext import commands
+from git import Repo
 
 bot = commands.Bot(
     command_prefix=commands.when_mentioned_or("!"),
@@ -209,6 +211,16 @@ class Radio(commands.Cog):
 async def on_ready():
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
     print("------")
+    repo = Repo(os.getcwd())
+    chan = bot.get_channel(int(os.getenv("DISCORD_NOTIFYCHAN")))
+    await chan.send(
+        "Jukebot is now online! Last changes at: "
+        + time.strftime(
+            "%B %d, %Y (%H:%M:%S)", time.gmtime(repo.heads.master.commit.committed_date)
+        )
+        + ", Git Commit: "
+        + repo.heads.master.commit.__str__()
+    )
 
 
 def main():

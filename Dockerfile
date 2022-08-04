@@ -13,5 +13,7 @@ RUN pipenv install --system --deploy
 
 RUN apk del build-essentials
 
+RUN apk add git
+
 ENTRYPOINT [ "python", "./src/main.py" ]
 CMD []

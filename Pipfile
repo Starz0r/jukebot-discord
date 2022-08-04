@@ -11,6 +11,9 @@ yt-dlp = "==2022.6.29"
 websockets = "==10.3"
 certifi = "==2022.06.15"
 pycryptodomex = "==3.15.0"
+typing-extensions = "==3.10.0.0"
+gitpython = "==3.1.27"
+gitdb = "==4.0.9"
 
 [requires]
 python_version = "3.9"
