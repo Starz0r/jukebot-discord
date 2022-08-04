@@ -14,14 +14,6 @@ jobs:
                 default: false
         executor: docker_latest
         steps:
-            - run:
-                name: Update the Alpine APK cache
-                command: |
-                    apk update
-            - run:
-                name: Install Git & SSH
-                command: |
-                    apk add git openssh-client openssh --no-cache
             - checkout
             - setup_remote_docker:
                 version: 17.09.0-ce
